@@ -8,6 +8,11 @@ import tarantool
 
 from .lib.tarantool_server import TarantoolServer
 
+
+def version_id(major, minor, patch):
+    return (((major << 8) | minor) << 8) | patch
+
+
 class TestSuite_Request(unittest.TestCase):
     @classmethod
     def setUpClass(self):
@@ -298,6 +303,35 @@ class TestSuite_Request(unittest.TestCase):
             self.con.update('sp', (2,), [('+', 'thi', 3)]),
             [[2, 'help', 7]]
         )
+
+    def test_13_varbinary(self):
+        if sys.version_info.major == 2:
+            raise unittest.SkipTest(
+                 'bytes are encoded into mp_bin only for Python 3')
+
+        if self.con.version_id < version_id(2, 2, 1):
+            raise unittest.SkipTest(
+                "'varbinary' is supported since 2.2.0-492-g59de57d23")
+
+        self.adm("""
+        box.schema.create_space('space_3', {
+            format = {
+                [1] = {name = 'id', type = 'unsigned'},
+                [2] = {name = 'value', type = 'varbinary'},
+            }
+        })
+        """.replace('\n', ' '))
+        self.adm("""
+        box.space['space_3']:create_index('primary', {
+            parts = {'id'},
+        })
+        """.replace('\n', ' '))
+
+        t = [1, b'\xff']
+        self.assertEqual(self.con.insert('space_3', t)[0], t)
+
+        res = self.con.select('space_3', 1)
+        self.assertSequenceEqual(res, [[1, b'\xff']])
 
     @classmethod
     def tearDownClass(self):
