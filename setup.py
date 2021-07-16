@@ -83,6 +83,6 @@ setup(
     cmdclass=cmdclass,
     command_options=command_options,
     install_requires=[
-        'msgpack>=0.4.0',
+        'msgpack>=1.0.0',
     ]
 )
